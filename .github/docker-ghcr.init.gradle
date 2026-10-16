@@ -1,0 +1,25 @@
+// Applied only by the fork's Docker workflow.
+// Upstream publishes to Docker Hub and GHCR. This fork publishes
+// ghcr.io/<owner>/komga:latest and ghcr.io/<owner>/komga:<commit>.
+// Disabled registries are still passed to `docker buildx build --push`,
+// so the Docker Hub registry is removed rather than set to NEVER.
+
+gradle.projectsEvaluated {
+    def docker = gradle.rootProject.extensions.getByName("jreleaser").packagers.docker
+    def sha = System.getenv("GITHUB_SHA") ?: "local"
+    def owner = (System.getenv("GITHUB_REPOSITORY_OWNER") ?: "menkinds").toLowerCase(java.util.Locale.ROOT)
+    def repo = System.getenv("GITHUB_REPOSITORY") ?: "${owner}/komga"
+
+    docker.imageNames.set(["komga:latest", "komga:${sha}".toString()])
+    docker.registries.named("ghcr.io").get().repositoryName.set(owner)
+    docker.label("org.opencontainers.image.source", "https://github.com/${repo}".toString())
+    docker.label("org.opencontainers.image.revision", sha)
+
+    def dockerHub = docker.registries.findByName("docker.io")
+    if (dockerHub != null) {
+        docker.registries.remove(dockerHub)
+    }
+
+    println "Fork Docker tags: ghcr.io/${owner}/komga:latest ghcr.io/${owner}/komga:${sha}"
+    println "Fork Docker registries: ${docker.registries.names}"
+}
