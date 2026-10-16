@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - master
-      - cursor/docker-ghcr-upstream-sync-be66
   workflow_dispatch:
 
 permissions:
