@@ -57,6 +57,7 @@ class SeriesLifecycle(
   private val bookMetadataAggregationRepository: BookMetadataAggregationRepository,
   private val collectionRepository: SeriesCollectionRepository,
   private val readProgressRepository: ReadProgressRepository,
+  private val hashArchive: HashArchive,
   private val taskEmitter: TaskEmitter,
   private val eventPublisher: ApplicationEventPublisher,
   private val transactionTemplate: TransactionTemplate,
@@ -220,6 +221,7 @@ class SeriesLifecycle(
         .map { (bookId, pageSize) -> ReadProgress(bookId, user.id, pageSize, true) }
 
     readProgressRepository.save(progresses)
+    bookRepository.findAllBySeriesId(seriesId).forEach { hashArchive.archive(it) }
     progresses.forEach { eventPublisher.publishEvent(DomainEvent.ReadProgressChanged(it)) }
     eventPublisher.publishEvent(DomainEvent.ReadProgressSeriesChanged(seriesId, user.id))
   }

@@ -57,6 +57,7 @@ class LibraryContentLifecycle(
   private val taskEmitter: TaskEmitter,
   private val transactionTemplate: TransactionTemplate,
   private val hasher: Hasher,
+  private val movedSeriesRelink: MovedSeriesRelink,
   private val bookMetadataRepository: BookMetadataRepository,
   private val seriesMetadataRepository: SeriesMetadataRepository,
   private val readListRepository: ReadListRepository,
@@ -145,12 +146,24 @@ class LibraryContentLifecycle(
 
         // if series does not exist, save it
         if (existingSeries == null) {
-          logger.info { "Adding new series: $newSeries" }
-          val createdSeries = seriesLifecycle.createSeries(newSeries)
-          seriesLifecycle.addBooks(createdSeries, newBooks)
-          tryRestoreSeries(createdSeries, newBooks)
-          tryRestoreBooks(newBooks)
-          seriesToSortAndRefresh.add(createdSeries)
+          val relinked = movedSeriesRelink.tryRelink(newSeries, newBooks)
+          if (relinked != null) {
+            logger.info { "Relinked existing series ${relinked.series.id} to ${newSeries.url}" }
+            if (relinked.booksToAdd.isNotEmpty()) {
+              seriesLifecycle.addBooks(relinked.series, relinked.booksToAdd)
+              tryRestoreBooks(relinked.booksToAdd)
+            }
+            seriesToSortAndRefresh.add(relinked.series)
+          } else {
+            logger.info { "Adding new series: $newSeries" }
+            val createdSeries = seriesLifecycle.createSeries(newSeries)
+            val reused = movedSeriesRelink.reuseDeletedBooks(createdSeries, newBooks)
+            val booksToAdd = newBooks.filterNot { it.url in reused }
+            seriesLifecycle.addBooks(createdSeries, booksToAdd)
+            if (reused.isEmpty()) tryRestoreSeries(createdSeries, booksToAdd)
+            tryRestoreBooks(booksToAdd)
+            seriesToSortAndRefresh.add(createdSeries)
+          }
         } else {
           // if series already exists, update it
           logger.debug { "Scanned series already exists. Scanned: $newSeries, Existing: $existingSeries" }
