@@ -1,0 +1,95 @@
+name: Publish Docker image
+
+on:
+  push:
+    branches:
+      - master
+      - cursor/docker-ghcr-upstream-sync-be66
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: docker-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Build and push
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - name: Remove unnecessary files
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: WebUI - Setup
+        uses: ./.github/actions/setup-web
+        with:
+          working-directory: komga-webui
+
+      - name: WebUI - build
+        working-directory: komga-webui
+        run: npm run build
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+
+      - name: NextUI - Setup
+        uses: ./.github/actions/setup-web
+        with:
+          working-directory: next-ui
+
+      - name: NextUI - build
+        working-directory: next-ui
+        run: npm run build:with-i18n
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v6
+        with:
+          java-version: 21
+          java-package: jdk
+          distribution: temurin
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6.4.0
+
+      - name: Build
+        run: ./gradlew :komga:webuiCopyIndex :komga:nextuiCopyIndex :komga:bootJar
+
+      - name: Point image source at this repository
+        run: |
+          sed -i "s#https://github.com/gotson/komga#https://github.com/${GITHUB_REPOSITORY}#g" komga/docker/Dockerfile.tpl
+
+      - name: JReleaser Publish
+        run: ./gradlew jreleaserPublish --stacktrace -I .github/docker-ghcr.init.gradle
+        env:
+          JRELEASER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: JReleaser Publish output
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: jreleaser-publish
+          path: |
+            build/jreleaser/trace.log
+            build/jreleaser/output.properties
