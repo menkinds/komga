@@ -37,6 +37,7 @@ import org.gotson.komga.infrastructure.image.ImageType
 import org.gotson.komga.infrastructure.koreader.KoreaderHasher
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.context.ApplicationEventPublisher
+import org.springframework.context.annotation.Lazy
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
 import org.springframework.transaction.support.TransactionTemplate
@@ -72,6 +73,8 @@ class BookLifecycle(
   private val hasherKoreader: KoreaderHasher,
   private val historicalEventRepository: HistoricalEventRepository,
   private val komgaSettingsProvider: KomgaSettingsProvider,
+  private val hashArchive: HashArchive,
+  @Lazy private val movedSeriesRelink: MovedSeriesRelink,
   @Qualifier("pdfImageType")
   private val pdfImageType: ImageType,
 ) {
@@ -111,7 +114,9 @@ class BookLifecycle(
     logger.info { "Hash and persist book: $book" }
     if (book.fileHash.isBlank()) {
       val hash = hasher.computeHash(book.path)
-      bookRepository.update(book.copy(fileHash = hash))
+      val updated = book.copy(fileHash = hash)
+      bookRepository.update(updated)
+      movedSeriesRelink.onBookHashed(updated)
     } else {
       logger.info { "Book already has a hash, skipping" }
     }
@@ -364,6 +369,7 @@ class BookLifecycle(
 
   fun deleteOne(book: Book) {
     logger.info { "Delete book id: ${book.id}" }
+    hashArchive.archive(book)
 
     transactionTemplate.executeWithoutResult {
       readProgressRepository.deleteByBookId(book.id)
@@ -381,16 +387,23 @@ class BookLifecycle(
   }
 
   fun softDeleteMany(books: Collection<Book>) {
+    if (books.isEmpty()) return
     logger.info { "Soft delete books: $books" }
+    hashArchive.archiveAll(books)
     val deletedDate = LocalDateTime.now()
     bookRepository.update(books.map { it.copy(deletedDate = deletedDate) })
 
     books.forEach { eventPublisher.publishEvent(DomainEvent.BookUpdated(it)) }
   }
 
-  fun deleteMany(books: Collection<Book>) {
+  fun deleteMany(
+    books: Collection<Book>,
+    archive: Boolean = true,
+  ) {
+    if (books.isEmpty()) return
     val bookIds = books.map { it.id }
     logger.info { "Delete book ids: $bookIds" }
+    if (archive) hashArchive.archiveAll(books)
 
     transactionTemplate.executeWithoutResult {
       readProgressRepository.deleteByBookIds(bookIds)
@@ -431,6 +444,7 @@ class BookLifecycle(
     val progress = ReadProgress(book.id, user.id, page, page == media.pageCount, locator = locator)
 
     readProgressRepository.save(progress)
+    hashArchive.archive(book)
     eventPublisher.publishEvent(DomainEvent.ReadProgressChanged(progress))
   }
 
@@ -442,6 +456,7 @@ class BookLifecycle(
 
     val progress = ReadProgress(bookId, user.id, media.pageCount, true)
     readProgressRepository.save(progress)
+    bookRepository.findByIdOrNull(bookId)?.let { hashArchive.archive(it) }
     eventPublisher.publishEvent(DomainEvent.ReadProgressChanged(progress))
   }
 
@@ -451,6 +466,7 @@ class BookLifecycle(
   ) {
     readProgressRepository.findByBookIdAndUserIdOrNull(book.id, user.id)?.let { progress ->
       readProgressRepository.delete(book.id, user.id)
+      hashArchive.archive(book)
       eventPublisher.publishEvent(DomainEvent.ReadProgressDeleted(progress))
     }
   }
@@ -540,6 +556,7 @@ class BookLifecycle(
       }
 
     readProgressRepository.save(progress)
+    hashArchive.archive(book)
     eventPublisher.publishEvent(DomainEvent.ReadProgressChanged(progress))
   }
 

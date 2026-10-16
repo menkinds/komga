@@ -1674,4 +1674,252 @@ class LibraryContentLifecycleTest(
       assertThat(readLists.content).isEmpty()
     }
   }
+
+  @Nested
+  inner class MovedFolder {
+    private fun hashByFileName() {
+      val captured = slot<Path>()
+      every { mockHasher.computeHash(capture(captured)) } answers {
+        "HASH-${captured.captured.nameWithoutExtension}"
+      }
+    }
+
+    private fun books(
+      folder: String,
+      names: List<String> = listOf("book1", "book2"),
+    ): List<Book> =
+      names.mapIndexed { index, name ->
+        makeBook(name, url = URL("file:$folder/$name.cbz")).copy(fileSize = (index + 1) * 100L)
+      }
+
+    @Test
+    fun `given series when the series folder is renamed then the same series and read progress are kept`() {
+      val library = makeLibrary()
+      libraryRepository.insert(library)
+      val original = makeSeries(name = "series1", url = URL("file:/library/series1"))
+      val renamed = makeSeries(name = "series2", url = URL("file:/library/series2"))
+      val originalBooks = books("/library/series1")
+      every { mockScanner.scanRootFolder(any()) }.returnsMany(
+        mapOf(original to originalBooks).toScanResult(),
+        mapOf(renamed to books("/library/series2")).toScanResult(),
+      )
+      libraryContentLifecycle.scanRootFolder(library)
+      val seriesId = seriesRepository.findAll().single().id
+      bookRepository.findAll().forEach { bookRepository.update(it.copy(fileHash = "HASH-${it.name}")) }
+      seriesLifecycle.markReadProgressCompleted(seriesId, user)
+      collectionLifecycle.addCollection(SeriesCollection("favorites", seriesIds = listOf(seriesId)))
+      hashByFileName()
+
+      libraryContentLifecycle.scanRootFolder(library)
+
+      val live = seriesRepository.findAll().filter { it.deletedDate == null }
+      assertThat(live).hasSize(1)
+      assertThat(live.single().id).isEqualTo(seriesId)
+      assertThat(live.single().name).isEqualTo("series2")
+      assertThat(live.single().url).isEqualTo(renamed.url)
+      val kept = bookRepository.findAll().filter { it.deletedDate == null }
+      assertThat(kept.map { it.id }).containsExactlyInAnyOrderElementsOf(originalBooks.map { it.id })
+      assertThat(readProgressRepository.findAll()).hasSize(2)
+      assertThat(collectionRepository.findAllContainingSeriesId(seriesId, SearchContext.empty()).map { it.name })
+        .containsExactly("favorites")
+    }
+
+    @Test
+    fun `given series when its parent folder is renamed then the same series is relinked`() {
+      val library = makeLibrary()
+      libraryRepository.insert(library)
+      val original = makeSeries(name = "제목 제01~09권", url = URL("file:/comic/publisher/title"))
+      val moved = makeSeries(name = "제목 제01~09권", url = URL("file:/comic/publisher-done/title"))
+      val originalBooks = books("/comic/publisher/title")
+      every { mockScanner.scanRootFolder(any()) }.returnsMany(
+        mapOf(original to originalBooks).toScanResult(),
+        mapOf(moved to books("/comic/publisher-done/title")).toScanResult(),
+      )
+      libraryContentLifecycle.scanRootFolder(library)
+      val seriesId = seriesRepository.findAll().single().id
+      bookRepository.findAll().forEach { bookRepository.update(it.copy(fileHash = "HASH-${it.name}")) }
+      seriesLifecycle.markReadProgressCompleted(seriesId, user)
+      hashByFileName()
+
+      libraryContentLifecycle.scanRootFolder(library)
+
+      val live = seriesRepository.findAll().single { it.deletedDate == null }
+      assertThat(live.id).isEqualTo(seriesId)
+      assertThat(live.url).isEqualTo(moved.url)
+      assertThat(bookRepository.findAll().filter { it.deletedDate == null }.map { it.name })
+        .containsExactlyInAnyOrder("book1", "book2")
+      assertThat(bookRepository.findAll().filter { it.deletedDate == null }.map { it.url.toString() })
+        .allMatch { it.contains("/comic/publisher-done/title/") }
+      assertThat(readProgressRepository.findAll()).hasSize(2)
+    }
+
+    @Test
+    fun `given series when the folder gains a completion suffix then hash relink keeps the series`() {
+      val library = makeLibrary()
+      libraryRepository.insert(library)
+      val original = makeSeries(name = "제목 제01~09권", url = URL("file:/comic/title"))
+      val completed = makeSeries(name = "제목 제01~09권 (완)", url = URL("file:/comic/title-done"))
+      val originalBooks = books("/comic/title")
+      every { mockScanner.scanRootFolder(any()) }.returnsMany(
+        mapOf(original to originalBooks).toScanResult(),
+        mapOf(completed to books("/comic/title-done")).toScanResult(),
+      )
+      libraryContentLifecycle.scanRootFolder(library)
+      val seriesId = seriesRepository.findAll().single().id
+      bookRepository.findAll().forEach { bookRepository.update(it.copy(fileHash = "HASH-${it.name}")) }
+      seriesMetadataRepository.update(
+        seriesMetadataRepository.findById(seriesId).copy(title = "Locked Title", titleLock = true),
+      )
+      hashByFileName()
+
+      libraryContentLifecycle.scanRootFolder(library)
+
+      val live = seriesRepository.findAll().single { it.deletedDate == null }
+      assertThat(live.id).isEqualTo(seriesId)
+      assertThat(live.name).isEqualTo("제목 제01~09권 (완)")
+      assertThat(seriesMetadataRepository.findById(seriesId).title).isEqualTo("Locked Title")
+      assertThat(bookRepository.findAll().filter { it.deletedDate == null }.map { it.id })
+        .containsExactlyInAnyOrderElementsOf(originalBooks.map { it.id })
+      verify(atLeast = 1) { mockHasher.computeHash(any<Path>()) }
+    }
+
+    @Test
+    fun `given series without file hashes when the folder is renamed with a completion suffix then normalized name relinks it`() {
+      val library = makeLibrary()
+      libraryRepository.insert(library)
+      val original = makeSeries(name = "제목 제01~09권", url = URL("file:/comic/old-parent/title"))
+      val moved = makeSeries(name = "제목 제01~09권 (완)", url = URL("file:/comic/new-parent/title-done"))
+      val originalBooks = books("/comic/old-parent/title")
+      every { mockScanner.scanRootFolder(any()) }.returnsMany(
+        mapOf(original to originalBooks).toScanResult(),
+        mapOf(moved to books("/comic/new-parent/title-done")).toScanResult(),
+      )
+      libraryContentLifecycle.scanRootFolder(library)
+      val seriesId = seriesRepository.findAll().single().id
+      seriesLifecycle.markReadProgressCompleted(seriesId, user)
+
+      libraryContentLifecycle.scanRootFolder(library)
+
+      val live = seriesRepository.findAll().single { it.deletedDate == null }
+      assertThat(live.id).isEqualTo(seriesId)
+      assertThat(live.name).isEqualTo("제목 제01~09권 (완)")
+      assertThat(live.url).isEqualTo(moved.url)
+      assertThat(readProgressRepository.findAll()).hasSize(2)
+      verify(exactly = 0) { mockHasher.computeHash(any<Path>()) }
+    }
+
+    @Test
+    fun `given two series with similar names when one folder changes then they are not merged`() {
+      val library = makeLibrary()
+      libraryRepository.insert(library)
+      val title = makeSeries(name = "제목", url = URL("file:/comic/title"))
+      val side = makeSeries(name = "제목 외전", url = URL("file:/comic/side"))
+      val sideMoved = makeSeries(name = "제목 외전 (완)", url = URL("file:/comic/side-done"))
+      every { mockScanner.scanRootFolder(any()) }.returnsMany(
+        mapOf(
+          title to books("/comic/title", listOf("title-1")),
+          side to books("/comic/side", listOf("side-1")),
+        ).toScanResult(),
+        mapOf(sideMoved to books("/comic/side-done", listOf("side-1"))).toScanResult(),
+      )
+      libraryContentLifecycle.scanRootFolder(library)
+      val titleId = seriesRepository.findAll().single { it.name == "제목" }.id
+      val sideId = seriesRepository.findAll().single { it.name == "제목 외전" }.id
+
+      libraryContentLifecycle.scanRootFolder(library)
+
+      val live = seriesRepository.findAll().single { it.deletedDate == null }
+      val trashed = seriesRepository.findAll().single { it.deletedDate != null }
+      assertThat(live.id).isEqualTo(sideId)
+      assertThat(live.name).isEqualTo("제목 외전 (완)")
+      assertThat(trashed.id).isEqualTo(titleId)
+      assertThat(bookRepository.findAllBySeriesId(sideId).filter { it.deletedDate == null }).hasSize(1)
+      assertThat(bookRepository.findAllBySeriesId(titleId).filter { it.deletedDate == null }).isEmpty()
+    }
+
+    @Test
+    fun `given hashed series when hashes are computed only after the move scan then the trashed series is relinked`() {
+      val library = makeLibrary()
+      libraryRepository.insert(library)
+      val original = makeSeries(name = "Alpha Shelf", url = URL("file:/comic/alpha"))
+      val moved = makeSeries(name = "Moved Elsewhere", url = URL("file:/comic/elsewhere"))
+      val originalBooks = books("/comic/alpha")
+      every { mockScanner.scanRootFolder(any()) }.returnsMany(
+        mapOf(original to originalBooks).toScanResult(),
+        mapOf(moved to books("/comic/elsewhere").mapIndexed { index, book -> book.copy(fileSize = book.fileSize + 1) }).toScanResult(),
+      )
+      libraryContentLifecycle.scanRootFolder(library)
+      val seriesId = seriesRepository.findAll().single().id
+      bookRepository.findAll().forEach { bookRepository.update(it.copy(fileHash = "HASH-${it.name}")) }
+      seriesLifecycle.markReadProgressCompleted(seriesId, user)
+      every { mockHasher.computeHash(any<Path>()) } returns "not-ready"
+
+      libraryContentLifecycle.scanRootFolder(library)
+      assertThat(seriesRepository.findAll().filter { it.deletedDate == null }.map { it.id }).doesNotContain(seriesId)
+
+      hashByFileName()
+      bookRepository.findAll().filter { it.deletedDate == null && it.fileHash.isBlank() }.forEach {
+        bookLifecycle.hashAndPersist(it)
+      }
+
+      val live = seriesRepository.findAll().filter { it.deletedDate == null }
+      assertThat(live).hasSize(1)
+      assertThat(live.single().id).isEqualTo(seriesId)
+      assertThat(live.single().url).isEqualTo(moved.url)
+      assertThat(bookRepository.findAll().filter { it.deletedDate == null }.map { it.id })
+        .containsExactlyInAnyOrderElementsOf(originalBooks.map { it.id })
+      assertThat(readProgressRepository.findAll()).hasSize(2)
+    }
+
+    @Test
+    fun `given trashed series when the trash is emptied and the folder comes back renamed then progress is restored from the hash archive`() {
+      val library = makeLibrary()
+      libraryRepository.insert(library)
+      val original = makeSeries(name = "제목 제01~09권", url = URL("file:/comic/title"))
+      val returned = makeSeries(name = "제목 제01~09권 (완)", url = URL("file:/comic/done/title"))
+      every { mockScanner.scanRootFolder(any()) }.returnsMany(
+        mapOf(original to books("/comic/title")).toScanResult(),
+        emptyMap<Series, List<Book>>().toScanResult(),
+        mapOf(returned to books("/comic/done/title")).toScanResult(),
+      )
+      libraryContentLifecycle.scanRootFolder(library)
+      val seriesId = seriesRepository.findAll().single().id
+      val originalBookIds = bookRepository.findAll().map { it.id }
+      bookRepository.findAll().forEach { book ->
+        bookRepository.update(book.copy(fileHash = "HASH-${book.name}"))
+        bookMetadataRepository.update(bookMetadataRepository.findById(book.id).copy(tags = setOf("kept")))
+      }
+      seriesMetadataRepository.update(seriesMetadataRepository.findById(seriesId).copy(language = "ko"))
+      seriesLifecycle.markReadProgressCompleted(seriesId, user)
+      collectionLifecycle.addCollection(SeriesCollection("favorites", seriesIds = listOf(seriesId)))
+      readListLifecycle.addReadList(ReadList("keep-reading", bookIds = originalBookIds.toIndexedMap()))
+      libraryContentLifecycle.scanRootFolder(library)
+
+      libraryContentLifecycle.emptyTrash(library)
+      assertThat(seriesRepository.findAll()).isEmpty()
+      assertThat(readProgressRepository.findAll()).isEmpty()
+
+      hashByFileName()
+      libraryContentLifecycle.scanRootFolder(library)
+      bookRepository.findAll().forEach { bookLifecycle.hashAndPersist(it) }
+
+      val series = seriesRepository.findAll().single { it.deletedDate == null }
+      assertThat(series.id).isNotEqualTo(seriesId)
+      assertThat(series.name).isEqualTo("제목 제01~09권 (완)")
+      assertThat(seriesMetadataRepository.findById(series.id).language).isEqualTo("ko")
+      val restored = bookRepository.findAll().filter { it.deletedDate == null }
+      assertThat(restored).hasSize(2)
+      assertThat(restored.map { it.id }).doesNotContainAnyElementsOf(originalBookIds)
+      restored.forEach { book ->
+        assertThat(bookMetadataRepository.findById(book.id).tags).contains("kept")
+        assertThat(readProgressRepository.findByBookIdAndUserIdOrNull(book.id, user.id)?.completed).isTrue()
+      }
+      assertThat(collectionRepository.findAllContainingSeriesId(series.id, SearchContext.empty()).map { it.name })
+        .containsExactly("favorites")
+      restored.forEach { book ->
+        assertThat(readListRepository.findAllContainingBookId(book.id, SearchContext.empty()).map { it.name })
+          .containsExactly("keep-reading")
+      }
+    }
+  }
 }
