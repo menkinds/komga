@@ -69,16 +69,18 @@ class HashArchive(
 
   /**
    * Copy archived progress and metadata onto [book] when it is the only live book with that hash.
+   * Returns the applied snapshot, or null when nothing was restored.
    */
-  fun restore(book: Book) {
-    if (book.fileHash.isBlank() || book.deletedDate != null) return
-    if (otherLiveBookHasHash(book)) return
-    val snapshot = read(book.fileHash) ?: return
+  fun restore(book: Book): Snapshot? {
+    if (book.fileHash.isBlank() || book.deletedDate != null) return null
+    if (otherLiveBookHasHash(book)) return null
+    val snapshot = read(book.fileHash) ?: return null
     logger.info { "Restoring hash archive onto book ${book.id} (${book.fileHash})" }
     applyBook(book, snapshot)
     applyReadProgress(book, snapshot)
     applyReadLists(book, snapshot)
     applySeriesIfMajority(book, snapshot)
+    return snapshot
   }
 
   private fun snapshot(book: Book): Snapshot? {

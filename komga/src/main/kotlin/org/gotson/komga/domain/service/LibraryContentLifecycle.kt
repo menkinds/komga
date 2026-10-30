@@ -58,6 +58,7 @@ class LibraryContentLifecycle(
   private val transactionTemplate: TransactionTemplate,
   private val hasher: Hasher,
   private val movedSeriesRelink: MovedSeriesRelink,
+  private val takenOverSeriesCleanup: TakenOverSeriesCleanup,
   private val bookMetadataRepository: BookMetadataRepository,
   private val seriesMetadataRepository: SeriesMetadataRepository,
   private val readListRepository: ReadListRepository,
@@ -271,6 +272,8 @@ class LibraryContentLifecycle(
           }
       }
 
+      takenOverSeriesCleanup.afterScan()
+
       if (library.emptyTrashAfterScan)
         emptyTrash(library)
       else
@@ -438,6 +441,7 @@ class LibraryContentLifecycle(
               }
 
             // delete soft-deleted book
+            takenOverSeriesCleanup.markTakenOver(match, bookWithHash)
             bookLifecycle.deleteOne(match)
           }
         }
