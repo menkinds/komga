@@ -25,6 +25,7 @@ class MovedSeriesRelink(
   private val seriesMetadataRepository: SeriesMetadataRepository,
   private val hasher: Hasher,
   private val hashArchive: HashArchive,
+  private val takenOverSeriesCleanup: TakenOverSeriesCleanup,
   private val transactionTemplate: TransactionTemplate,
   @Lazy private val bookLifecycle: BookLifecycle,
   @Lazy private val seriesLifecycle: SeriesLifecycle,
@@ -101,7 +102,7 @@ class MovedSeriesRelink(
       foldDeletedSeries(fresh.seriesId)
       return
     }
-    if (!foldLiveSeries(fresh.seriesId)) hashArchive.restore(fresh)
+    if (!foldLiveSeries(fresh.seriesId)) takenOverSeriesCleanup.markRestored(fresh, hashArchive.restore(fresh))
   }
 
   private fun relinkByHash(
