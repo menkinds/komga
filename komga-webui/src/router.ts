@@ -321,6 +321,12 @@ const router = new Router({
 })
 
 router.beforeEach((to, from, next) => {
+  // hidden libraries cannot be opened, even from a bookmarked url
+  if (to.params.libraryId && lStore.getters.getLibraryById(to.params.libraryId)?.hidden) {
+    next({name: 'home'})
+    return
+  }
+
   // avoid document.title flickering when changing route
   if (!['read-book', 'read-epub', 'browse-book', 'browse-oneshot', 'browse-series', 'browse-libraries', 'browse-books',
     'recommended-libraries', 'browse-collection', 'browse-collections', 'browse-readlist', 'browse-readlists'].includes(<string>to.name)

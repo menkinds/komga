@@ -20,11 +20,19 @@ export enum CLIENT_SETTING {
   WEBUI_LIBRARIES = 'webui.libraries',
   WEBUI_SERIES_GROUPS = 'webui.series_groups',
   WEBUI_RECOMMENDED = 'webui.recommended',
+  WEBUI_HIDDEN_LIBRARIES_LOCK = 'webui.hidden_libraries_lock',
 }
 
 export interface ClientSettingLibrary {
   unpinned?: boolean,
+  hidden?: boolean,
   order?: number,
+}
+
+// password that unhides the hidden libraries, stored as a salted SHA-256
+export interface ClientSettingHiddenLibrariesLock {
+  salt: string,
+  hash: string,
 }
 
 export interface ClientSettingLibraryUpdate {

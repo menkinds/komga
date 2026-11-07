@@ -178,6 +178,7 @@ import {
   SeriesSseDto,
 } from '@/types/komga-sse'
 import {throttle} from 'lodash'
+import {visibleLibraryIds, withoutHiddenBooks, withoutHiddenSeries} from '@/functions/hidden-libraries'
 import {PageLoader} from '@/types/pageLoader'
 import {ItemContext} from '@/types/items'
 import {ReadListDto} from '@/types/komga-readlists'
@@ -416,13 +417,14 @@ export default Vue.extend({
       if (search) {
         this.loaderSeries = new PageLoader<SeriesDto>({size: this.pageSize}, (pageable: PageRequest) => this.$komgaSeries.getSeriesList({
           fullTextSearch: search,
-          condition: new SearchConditionOneShot(new SearchOperatorIsFalse()),
+          condition: withoutHiddenSeries(this.$store, new SearchConditionOneShot(new SearchOperatorIsFalse())),
         } as SeriesSearch, pageable))
         this.loaderBooks = new PageLoader<BookDto>({size: this.pageSize}, (pageable: PageRequest) => this.$komgaBooks.getBooksList({
           fullTextSearch: search,
+          condition: withoutHiddenBooks(this.$store),
         } as BookSearch, pageable))
-        this.loaderCollections = new PageLoader<CollectionDto>({size: this.pageSize}, (pageable: PageRequest) => this.$komgaCollections.getCollections(undefined, pageable, search))
-        this.loaderReadLists = new PageLoader<ReadListDto>({size: this.pageSize}, (pageable: PageRequest) => this.$komgaReadLists.getReadLists(undefined, pageable, search))
+        this.loaderCollections = new PageLoader<CollectionDto>({size: this.pageSize}, (pageable: PageRequest) => this.$komgaCollections.getCollections(visibleLibraryIds(this.$store), pageable, search))
+        this.loaderReadLists = new PageLoader<ReadListDto>({size: this.pageSize}, (pageable: PageRequest) => this.$komgaReadLists.getReadLists(visibleLibraryIds(this.$store), pageable, search))
       } else {
         this.loaderSeries = null as unknown as PageLoader<SeriesDto>
         this.loaderBooks = null as unknown as PageLoader<BookDto>

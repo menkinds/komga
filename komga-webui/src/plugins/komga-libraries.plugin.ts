@@ -20,11 +20,18 @@ const vuexModule: Module<any, any> = {
     getLibraryById: (state, getters) => (id: number) => {
       return getters.getLibraries.find((l: any) => l.id === id)
     },
+    // hidden libraries are kept in getLibraries (names of items opened from collections etc.), but not listed anywhere
+    getLibrariesVisible(state, getters) {
+      return getters.getLibraries.filter((it: LibraryDto) => !it.hidden)
+    },
+    getLibrariesHidden(state, getters) {
+      return getters.getLibraries.filter((it: LibraryDto) => it.hidden)
+    },
     getLibrariesPinned(state, getters) {
-      return getters.getLibraries.filter((it: LibraryDto) => !it.unpinned)
+      return getters.getLibrariesVisible.filter((it: LibraryDto) => !it.unpinned)
     },
     getLibrariesUnpinned(state, getters) {
-      return getters.getLibraries.filter((it: LibraryDto) => it.unpinned)
+      return getters.getLibrariesVisible.filter((it: LibraryDto) => it.unpinned)
     },
   },
   mutations: {

@@ -34,6 +34,7 @@ export interface LibraryDto {
 
   // custom fields
   unpinned: boolean,
+  hidden: boolean,
   order: number,
 }
 

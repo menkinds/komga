@@ -19,6 +19,9 @@
         <v-list-item @click="confirmEmptyTrash = true" v-if="isAdmin">
           <v-list-item-title>{{ $t('server.server_management.button_empty_trash') }}</v-list-item-title>
         </v-list-item>
+        <v-list-item @click="unhideModal = true" v-if="hiddenCount > 0">
+          <v-list-item-title>{{ $t('hidden_libraries.unhide_menu') }}</v-list-item-title>
+        </v-list-item>
       </v-list>
     </v-menu>
 
@@ -29,21 +32,28 @@
       :button-confirm="$t('dialog.empty_trash.button_confirm')"
       @confirm="emptyTrash"
     />
+
+    <libraries-unhide-dialog v-model="unhideModal"/>
   </div>
 </template>
 <script lang="ts">
 import Vue from 'vue'
 import ConfirmationDialog from '@/components/dialogs/ConfirmationDialog.vue'
+import LibrariesUnhideDialog from '@/components/dialogs/LibrariesUnhideDialog.vue'
 
 export default Vue.extend({
   name: 'LibrariesActionsMenu',
-  components: {ConfirmationDialog},
+  components: {ConfirmationDialog, LibrariesUnhideDialog},
   data: () => {
     return {
       confirmEmptyTrash: false,
+      unhideModal: false,
     }
   },
   computed: {
+    hiddenCount(): number {
+      return this.$store.getters.getLibrariesHidden.length
+    },
     isAdmin(): boolean {
       return this.$store.getters.meAdmin
     },

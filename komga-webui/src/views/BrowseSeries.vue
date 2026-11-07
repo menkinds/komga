@@ -91,6 +91,7 @@
             thumbnail-only
             no-link
             :action-menu="false"
+            :read-to="nextBookReadTo"
           ></item-card>
         </v-col>
 
@@ -549,6 +550,7 @@ import {BookSseDto, CollectionSseDto, LibrarySseDto, ReadProgressSseDto, SeriesS
 import {ItemContext} from '@/types/items'
 import {Context, ContextOrigin} from '@/types/context'
 import {RawLocation} from 'vue-router/types/router'
+import {getBookReadRouteFromMedia} from '@/functions/book-format'
 import {
   SearchConditionAgeRating,
   SearchConditionAllOfBook,
@@ -559,6 +561,7 @@ import {
   SearchConditionGenre,
   SearchConditionLanguage,
   SearchConditionMediaProfile,
+  SearchConditionMediaStatus,
   SearchConditionPublisher,
   SearchConditionReadStatus,
   SearchConditionSeriesId,
@@ -623,6 +626,7 @@ export default Vue.extend({
       totalElements: null as number | null,
       sortActive: {} as SortActive,
       sortDefault: {key: 'metadata.numberSort', order: 'asc'} as SortActive,
+      nextBook: undefined as BookDto | undefined,
       filters: {} as FiltersActive,
       filtersMode: {} as FiltersActiveMode,
       sortUnwatch: null as any,
@@ -641,6 +645,13 @@ export default Vue.extend({
     }
   },
   computed: {
+    nextBookReadTo(): RawLocation | undefined {
+      if (!this.nextBook) return undefined
+      return {
+        name: getBookReadRouteFromMedia(this.nextBook.media),
+        params: {bookId: this.nextBook.id},
+      }
+    },
     itemContext(): ItemContext[] {
       if (this.sortActive.key === 'metadata.releaseDate') return [ItemContext.RELEASE_DATE]
       if (this.sortActive.key === 'createdDate') return [ItemContext.DATE_ADDED]
@@ -978,6 +989,7 @@ export default Vue.extend({
       if (this.books.some(b => b.id === event.bookId)) {
         this.reloadPage()
         this.reloadSeries()
+        this.loadNextBook(this.seriesId)
       }
     },
     collectionChanged(event: CollectionSseDto) {
@@ -993,7 +1005,26 @@ export default Vue.extend({
       this.$komgaSeries.getOneSeries(this.seriesId)
         .then((v: SeriesDto) => this.series = v)
     }, 1000),
+    // book to open from the series cover: in progress, else first unread, else the first book (re-read)
+    async loadNextBook(seriesId: string) {
+      const base = [
+        new SearchConditionSeriesId(new SearchOperatorIs(seriesId)),
+        new SearchConditionDeleted(new SearchOperatorIsFalse()),
+        new SearchConditionMediaStatus(new SearchOperatorIs('READY')),
+      ] as SearchConditionBook[]
+      const first = async (readStatus?: ReadStatus) => (await this.$komgaBooks.getBooksList({
+        condition: new SearchConditionAllOfBook(readStatus ? [...base, new SearchConditionReadStatus(new SearchOperatorIs(readStatus))] : base),
+      }, {page: 0, size: 1, sort: ['metadata.numberSort,asc']} as PageRequest)).content[0]
+      try {
+        const book = await first(ReadStatus.IN_PROGRESS) || await first(ReadStatus.UNREAD) || await first()
+        if (seriesId === this.seriesId) this.nextBook = book
+      } catch (e) {
+        this.nextBook = undefined
+      }
+    },
     async loadSeries(seriesId: string) {
+      this.nextBook = undefined
+      this.loadNextBook(seriesId)
       this.$komgaSeries.getOneSeries(seriesId)
         .then(v => {
           this.series = v

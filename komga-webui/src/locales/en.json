@@ -858,6 +858,21 @@
     "filter": "filter",
     "sort": "sort"
   },
+  "hidden_libraries": {
+    "hide": "Hide",
+    "hide_body": "The library disappears from the menu, home, all libraries and search. Unhide it from the Libraries menu with your password.",
+    "hide_title": "Hide {name}",
+    "password": "Password",
+    "password_confirm": "Confirm password",
+    "password_mismatch": "Passwords do not match",
+    "password_wrong": "Wrong password",
+    "set_password_body": "Set the password needed to unhide libraries.",
+    "unhide": "Unhide",
+    "unhide_body": "Enter the password to show hidden libraries.",
+    "unhide_menu": "Unhide libraries",
+    "unhide_title": "Unhide libraries",
+    "unlock": "Unlock"
+  },
   "history": {
     "header": {
       "book": "Book",

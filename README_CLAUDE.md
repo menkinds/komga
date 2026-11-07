@@ -9,6 +9,14 @@
 - 코드 변경은 PR #4뿐: 9개 파일, +601/-5 (서비스 1, 테스트 1, 마이그레이션 1, hook 3, 문서 3).
 - 열린 항목과 다음 단계는 아래 "남은 일" 참고.
 
+## 2026-11-07: 라이브러리 숨김(암호) + 시리즈 커버 읽기 버튼 (webui, 브랜치 claude/friendly-babbage-2yplaz)
+- 숨김: 라이브러리 ⋮ 메뉴 "숨기기"(관리자 아니어도 보임). 첫 숨김 때 암호를 정함. 해제는 Libraries ⋮ 메뉴 "숨긴 라이브러리 해제"(숨긴 게 있을 때만) → 암호 → 체크한 것만 해제.
+- 저장: 사용자 client setting. `webui.libraries`의 라이브러리별 `hidden`, 암호는 `webui.hidden_libraries_lock` = {salt, sha256(salt+암호)}. 서버 코드 변경 없음. crypto.subtle은 http에서 없어 `functions/sha256.ts`(node crypto와 대조 확인).
+- 숨김 적용: store `getLibrariesPinned/Unpinned`가 숨김 제외 → 드로어, 홈, 전체 라이브러리 화면, 컬렉션/읽기목록 필터 목록, 재정렬에서 빠짐. 검색창·검색 화면은 `functions/hidden-libraries.ts`로 libraryId isNot 조건. 숨긴 라이브러리 URL은 router에서 home으로.
+- 한계: 웹 UI만 숨김(API·OPDS·Komelia에는 영향 없음). 암호 분실 시 client setting `webui.hidden_libraries_lock`를 API로 지우면 암호 없이 해제 가능. 다른 라이브러리와 섞인 컬렉션/읽기목록은 보일 수 있음.
+- 시리즈 커버: BrowseSeries 커버에 마우스를 올리면 책 카드와 같은 빨간 FAB, 커버 클릭도 바로 읽기. 대상 = 진행 중 책(번호순 첫 권) → 없으면 첫 안 읽은 책 → 없으면 첫 권. READY·삭제 안 된 책만. `ItemCard` prop `readTo`.
+- 확인: eslint 통과, `npm run build` 번들 성공. webpack 타입체커는 8GB에서도 OOM(기존 문제로 보임), `tsc --noEmit`은 바뀐 .ts 파일에 오류 없음(.vue는 미검사). 브라우저 실행 확인은 안 함.
+
 ## 저장소 요약
 - gotson/komga 포크(menkinds/komga). 포크 기능 설명은 `FORK_NOTES.md`.
 - 포크 전용 코드: `komga/src/main/kotlin/org/gotson/komga/domain/service/` 의

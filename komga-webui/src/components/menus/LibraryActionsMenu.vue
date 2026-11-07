@@ -25,6 +25,9 @@
         <v-list-item @click="edit" v-if="isAdmin">
           <v-list-item-title>{{ $t('menu.edit') }}</v-list-item-title>
         </v-list-item>
+        <v-list-item @click="hideModal = true">
+          <v-list-item-title>{{ $t('hidden_libraries.hide') }}</v-list-item-title>
+        </v-list-item>
         <v-list-item @click="promptDeleteLibrary"
                      class="list-danger"
                      v-if="isAdmin"
@@ -57,16 +60,19 @@
       :button-confirm="$t('dialog.empty_trash.button_confirm')"
       @confirm="emptyTrash"
     />
+
+    <library-hide-dialog v-model="hideModal" :library="library"/>
   </div>
 </template>
 <script lang="ts">
 import Vue from 'vue'
 import ConfirmationDialog from '@/components/dialogs/ConfirmationDialog.vue'
 import {LibraryDto} from '@/types/komga-libraries'
+import LibraryHideDialog from '@/components/dialogs/LibraryHideDialog.vue'
 
 export default Vue.extend({
   name: 'LibraryActionsMenu',
-  components: {ConfirmationDialog},
+  components: {ConfirmationDialog, LibraryHideDialog},
   props: {
     library: {
       type: Object as () => LibraryDto,
@@ -78,6 +84,7 @@ export default Vue.extend({
       confirmAnalyzeModal: false,
       confirmRefreshMetadataModal: false,
       confirmEmptyTrash: false,
+      hideModal: false,
     }
   },
   computed: {
