@@ -5,10 +5,12 @@ import {Module} from 'vuex'
 import {
   CLIENT_SETTING,
   ClientSettingDto,
+  ClientSettingHiddenLibrariesLock,
   ClientSettingLibrary,
   ClientSettingLibraryUpdate,
   ClientSettingUserUpdateDto,
 } from '@/types/komga-clientsettings'
+import {sha256} from '@/functions/sha256'
 
 let service: KomgaSettingsService
 
@@ -28,6 +30,14 @@ const vuexModule: Module<any, any> = {
       } catch (e) {
       }
       return settings
+    },
+    getHiddenLibrariesLock(state): ClientSettingHiddenLibrariesLock | undefined {
+      try {
+        const lock = JSON.parse(state.clientSettingsUser[CLIENT_SETTING.WEBUI_HIDDEN_LIBRARIES_LOCK]?.value)
+        if (lock?.salt && lock?.hash) return lock
+      } catch (e) {
+      }
+      return undefined
     },
   },
   mutations: {
@@ -65,6 +75,15 @@ const vuexModule: Module<any, any> = {
       }
       await service.updateClientSettingUser(newSettings)
       dispatch('getClientSettingsUser')
+    },
+    async setHiddenLibrariesPassword({dispatch}, password: string) {
+      const salt = Array.from({length: 16}, () => Math.floor(Math.random() * 256).toString(16).padStart(2, '0')).join('')
+      const newSettings = {} as Record<string, ClientSettingUserUpdateDto>
+      newSettings[CLIENT_SETTING.WEBUI_HIDDEN_LIBRARIES_LOCK] = {
+        value: JSON.stringify({salt: salt, hash: sha256(salt + password)} as ClientSettingHiddenLibrariesLock),
+      }
+      await service.updateClientSettingUser(newSettings)
+      await dispatch('getClientSettingsUser')
     },
   },
 }

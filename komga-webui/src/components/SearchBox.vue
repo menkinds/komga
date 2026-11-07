@@ -117,6 +117,7 @@
 <script lang="ts">
 import {bookThumbnailUrl, collectionThumbnailUrl, readListThumbnailUrl, seriesThumbnailUrl} from '@/functions/urls'
 import {debounce} from 'lodash'
+import {visibleLibraryIds, withoutHiddenBooks, withoutHiddenSeries} from '@/functions/hidden-libraries'
 import Vue from 'vue'
 import {BookDto} from '@/types/komga-books'
 import {SeriesDto} from '@/types/komga-series'
@@ -210,13 +211,14 @@ export default Vue.extend({
         this.loading = true
         this.series = (await this.$komgaSeries.getSeriesList({
           fullTextSearch: query,
-          condition: new SearchConditionOneShot(new SearchOperatorIsFalse()),
+          condition: withoutHiddenSeries(this.$store, new SearchConditionOneShot(new SearchOperatorIsFalse())),
         } as SeriesSearch, {size: this.pageSize})).content
         this.books = (await this.$komgaBooks.getBooksList({
           fullTextSearch: query,
+          condition: withoutHiddenBooks(this.$store),
         } as BookSearch, {size: this.pageSize})).content
-        this.collections = (await this.$komgaCollections.getCollections(undefined, {size: this.pageSize}, query)).content
-        this.readLists = (await this.$komgaReadLists.getReadLists(undefined, {size: this.pageSize}, query)).content
+        this.collections = (await this.$komgaCollections.getCollections(visibleLibraryIds(this.$store), {size: this.pageSize}, query)).content
+        this.readLists = (await this.$komgaReadLists.getReadLists(visibleLibraryIds(this.$store), {size: this.pageSize}, query)).content
         this.showResults = true
         this.loading = false
       } else {

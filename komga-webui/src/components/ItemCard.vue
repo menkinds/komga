@@ -238,6 +238,11 @@ export default Vue.extend({
       type: Boolean,
       default: false,
     },
+    // read target for a card that is not a book (series cover: book in progress or next to read)
+    readTo: {
+      type: Object as () => RawLocation,
+      required: false,
+    },
   },
   data: () => {
     return {
@@ -339,13 +344,14 @@ export default Vue.extend({
       return false
     },
     showFab(): boolean {
+      if (this.readTo) return !this.disableFab && !this.selected && !this.preselect && this.$store.getters.mePageStreaming
       return !this.disableFab && this.bookReady && !this.selected && !this.preselect && this.canReadPages
     },
     to(): RawLocation {
       return this.computedItem.to()
     },
     fabTo(): RawLocation {
-      return this.computedItem.fabTo()
+      return this.readTo || this.computedItem.fabTo()
     },
   },
   methods: {
@@ -376,6 +382,8 @@ export default Vue.extend({
         this.selectItem(e)
       } else if (!this.noLink) {
         this.goto()
+      } else if (this.showFab && this.readTo) {
+        this.$router.push(this.readTo)
       }
     },
     goto() {

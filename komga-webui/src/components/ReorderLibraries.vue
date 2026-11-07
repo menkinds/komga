@@ -71,7 +71,7 @@ export default Vue.extend({
     },
   },
   mounted() {
-    this.localItems = this.$store.getters.getLibraries
+    this.localItems = this.$store.getters.getLibrariesVisible
   },
   watch: {
     localItems: {
