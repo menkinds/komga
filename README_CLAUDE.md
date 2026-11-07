@@ -1,7 +1,9 @@
 # README_CLAUDE — 인계서
 
-마지막 갱신: 2026-10-30 일일 /save (KST), 브랜치 `claude/hook-20261030-150234-b30cb8`
-현재 상태: master = `dd749a91` (PR #4 병합, 2026-10-30 22:26 KST). 그 아래 `801ff350` = upstream 1.29.2 병합(PR #3).
+마지막 갱신: 2026-11-07 /save (KST), 브랜치 `claude/friendly-babbage-2yplaz`
+현재 상태: master = `2567b4cc` (PR #6 병합, 2026-11-07 KST: 라이브러리 숨김 + 시리즈 커버 읽기 버튼). 그 아래 `a7acf22` = PR #5.
+- 2026-11-07 docker-publish 수동 실행 성공(run 42343647410, 14:55 KST 완료) → `ghcr.io/menkinds/komga:latest` 갱신. NAS 반영(이미지 pull·재시작)은 미확인.
+- 2026-11-07 발견: GitHub가 포크라는 이유로 워크플로를 꺼 둠("Workflows on this fork have been disabled"). Settings > Actions 허용과 별개. 사용자가 Actions 탭의 re-enable 버튼으로 다시 켬. 그 전 PR #6 머지 push에는 빌드가 안 돌았음.
 
 ## 2026-10-30 일일 요약
 - Claude 작업 1건: job `20261030-120026-8a2d48` (Opus 5.5, 완료). PR #4 병합됨. 커밋 `83c1692b` (21:28 KST).
@@ -66,6 +68,13 @@ export JAVA_HOME=$PWD/.claude-tools/jdk-21.0.13+9 GRADLE_USER_HOME=$PWD/.claude-
 첫 빌드는 의존성 다운로드로 약 9분.
 
 ## 남은 일 / 사람이 정할 것
+- (2026-11-07) 라이브러리 숨김·시리즈 커버 버튼 브라우저/폰 실기 확인 안 함. NAS에 새 이미지 반영 후 확인.
+- (2026-11-07) re-enable로 업스트림 워크플로(Chromatic, Discord 알림, 정기 작업 등)도 모두 켜짐. 필요 없는 것 정리할지 사람이 정함.
+- (2026-11-07) webui 빌드의 fork-ts-checker가 8GB에서도 OOM(기존 문제로 추정). `.vue` 타입 검사는 안 된 상태.
 - 운영 DB에 이미 남은 "グッバイ宣言 (完)" 시리즈: 새 책에 진행·메타데이터가 같으면 다음 스캔에서 지워질 것으로 추정(미확인, 운영 데이터로 시험 안 함). 컬렉션에 들어 있었는데 새 시리즈가 그 컬렉션에 없으면 남음.
 - `tryRestoreBooks`(업스트림) 경로는 컬렉션을 옮기지 않으므로, 옛 시리즈가 컬렉션에 있으면 자동 삭제하지 않음(안전 쪽 선택).
 - 배포 후 로그에서 `Deleted taken-over series:` 줄을 확인할 것.
+
+## 세션 기록
+
+- [[komga-2026-11-07-1-handoff]] — 웹 UI 라이브러리 숨김(암호)·시리즈 커버 읽기 버튼, PR #6 머지, 포크 워크플로 재활성화 후 도커 빌드 #2026-11
