@@ -720,6 +720,97 @@ class SeriesDtoDaoTest(
     }
 
     @Test
+    fun `given series when searching by author name without field prefix then series is found`() {
+      val series = seriesLifecycle.createSeries(makeSeries("Batman", library.id))
+      val book = makeBook("Batman 01", seriesId = series.id, libraryId = library.id)
+      seriesLifecycle.addBooks(series, listOf(book))
+      seriesLifecycle.createSeries(makeSeries("Batman and Robin", library.id))
+
+      bookMetadataRepository.findById(book.id).let {
+        bookMetadataRepository.update(it.copy(authors = listOf(Author("David", "writer"))))
+      }
+
+      seriesMetadataLifecycle.aggregateMetadata(series)
+      searchIndexLifecycle.rebuildIndex()
+
+      val found =
+        seriesDtoDao
+          .findAll(
+            SeriesSearch(fullTextSearch = "david"),
+            SearchContext(user),
+            UnpagedSorted(Sort.by("relevance")),
+          ).content
+
+      assertThat(found).hasSize(1)
+      assertThat(found.map { it.metadata.title }).containsExactly("Batman")
+
+      val foundByWriterPrefix =
+        seriesDtoDao
+          .findAll(
+            SeriesSearch(fullTextSearch = "writer:david"),
+            SearchContext(user),
+            UnpagedSorted(Sort.by("relevance")),
+          ).content
+
+      assertThat(foundByWriterPrefix).hasSize(1)
+      assertThat(foundByWriterPrefix.map { it.metadata.title }).containsExactly("Batman")
+    }
+
+    @Test
+    fun `given series when searching by CJK author name without field prefix then series is found`() {
+      val authorName = "皆川亮二"
+      val series = seriesLifecycle.createSeries(makeSeries("聖闘士星矢", library.id))
+      val book = makeBook("Vol.01", seriesId = series.id, libraryId = library.id)
+      seriesLifecycle.addBooks(series, listOf(book))
+
+      bookMetadataRepository.findById(book.id).let {
+        bookMetadataRepository.update(it.copy(authors = listOf(Author(authorName, "writer"))))
+      }
+
+      seriesMetadataLifecycle.aggregateMetadata(series)
+      searchIndexLifecycle.rebuildIndex()
+
+      val found =
+        seriesDtoDao
+          .findAll(
+            SeriesSearch(fullTextSearch = authorName),
+            SearchContext(user),
+            UnpagedSorted(Sort.by("relevance")),
+          ).content
+
+      assertThat(found).hasSize(1)
+      assertThat(found.map { it.metadata.title }).containsExactly("聖闘士星矢")
+    }
+
+    @Test
+    fun `given series when searching by term then title match ranks above author-only match`() {
+      val marker = "RankTestAuthor"
+      val titleMatchSeries = seriesLifecycle.createSeries(makeSeries("$marker adventures", library.id))
+      seriesLifecycle.createSeries(makeSeries("Unrelated series", library.id))
+
+      val authorOnlySeries = seriesLifecycle.createSeries(makeSeries("Quiet series", library.id))
+      val book = makeBook("Issue 1", seriesId = authorOnlySeries.id, libraryId = library.id)
+      seriesLifecycle.addBooks(authorOnlySeries, listOf(book))
+      bookMetadataRepository.findById(book.id).let {
+        bookMetadataRepository.update(it.copy(authors = listOf(Author(marker, "writer"))))
+      }
+      seriesMetadataLifecycle.aggregateMetadata(authorOnlySeries)
+
+      searchIndexLifecycle.rebuildIndex()
+
+      val found =
+        seriesDtoDao
+          .findAll(
+            SeriesSearch(fullTextSearch = marker),
+            SearchContext(user),
+            UnpagedSorted(Sort.by("relevance")),
+          ).content
+
+      assertThat(found).hasSize(2)
+      assertThat(found.map { it.metadata.title }).containsExactly("$marker adventures", "Quiet series")
+    }
+
+    @Test
     fun `given series when searching by release year then results are matched`() {
       // given
       val series = seriesLifecycle.createSeries(makeSeries("Batman", library.id))

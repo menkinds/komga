@@ -11,13 +11,21 @@ import org.gotson.komga.interfaces.api.rest.dto.BookDto
 import org.gotson.komga.interfaces.api.rest.dto.SeriesDto
 import org.gotson.komga.language.toDate
 
+private const val TITLE_FIELD_BOOST = 3f
+
 enum class LuceneEntity(
   val type: String,
   val id: String,
   val defaultFields: Array<String>,
+  val defaultFieldBoosts: Map<String, Float> = emptyMap(),
 ) {
-  Book("book", "book_id", arrayOf("title", "isbn")),
-  Series("series", "series_id", arrayOf("title")),
+  Book(
+    "book",
+    "book_id",
+    arrayOf("title", "isbn", "author"),
+    mapOf("title" to TITLE_FIELD_BOOST, "isbn" to 1f, "author" to 1f),
+  ),
+  Series("series", "series_id", arrayOf("title", "author"), mapOf("title" to TITLE_FIELD_BOOST, "author" to 1f)),
   Collection("collection", "collection_id", arrayOf("name")),
   ReadList("readlist", "readlist_id", arrayOf("name")),
   ;

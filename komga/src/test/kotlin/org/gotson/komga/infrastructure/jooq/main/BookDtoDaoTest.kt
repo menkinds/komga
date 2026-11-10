@@ -718,6 +718,17 @@ class BookDtoDaoTest(
       assertThat(foundByRole).hasSize(1)
       assertThat(foundByRole.map { it.metadata.title }).containsExactly("Éric le rouge")
       assertThat(notFound).isEmpty()
+
+      val foundUnprefixed =
+        bookDtoDao
+          .findAll(
+            BookSearch(fullTextSearch = "bob"),
+            SearchContext(user),
+            UnpagedSorted(Sort.by("relevance")),
+          ).content
+
+      assertThat(foundUnprefixed).hasSize(1)
+      assertThat(foundUnprefixed.map { it.metadata.title }).containsExactly("Éric le rouge")
     }
 
     @Test
