@@ -53,7 +53,7 @@ class MovedSeriesRelink(
       val ranked =
         hashedDeleted.mapNotNull { (series, books) ->
           val matched = overlapCount(newHashes, books.map { it.fileHash })
-          if (mostly(matched, newBooks.size, books.size)) series to books to matched else null
+          if (mostly(matched, books.size)) series to books to matched else null
         }
       val best = ranked.maxByOrNull { it.second }
       if (best != null && ranked.count { it.second == best.second } == 1) {
@@ -212,7 +212,7 @@ class MovedSeriesRelink(
         val liveBooks = bookRepository.findAllBySeriesId(live.id).filter { it.deletedDate == null }
         if (liveBooks.isEmpty() || liveBooks.any { it.fileHash.isBlank() }) return@mapNotNull null
         val matched = overlapCount(liveBooks.map { it.fileHash }, deletedBooks.map { it.fileHash })
-        if (!mostly(matched, liveBooks.size, deletedBooks.size)) return@mapNotNull null
+        if (!mostly(matched, deletedBooks.size)) return@mapNotNull null
         Triple(live, liveBooks, matched)
       }
     val best = ranked.maxByOrNull { it.third } ?: return false
@@ -232,7 +232,7 @@ class MovedSeriesRelink(
         .mapNotNull { deleted ->
           val books = bookRepository.findAllBySeriesId(deleted.id)
           val matched = overlapCount(liveBooks.map { it.fileHash }, books.map { it.fileHash })
-          if (mostly(matched, liveBooks.size, books.size)) deleted to matched else null
+          if (mostly(matched, books.size)) deleted to matched else null
         }
     val best = ranked.maxByOrNull { it.second } ?: return null
     if (ranked.count { it.second == best.second } != 1) return null
@@ -339,9 +339,12 @@ class MovedSeriesRelink(
     return count
   }
 
+  /**
+   * Most books of the trashed series are found again. The new folder may hold many more volumes
+   * (for example "제01~03권" renamed to "제01~08권"), so its size is not part of the rule.
+   */
   private fun mostly(
     matched: Int,
-    leftCount: Int,
-    rightCount: Int,
-  ): Boolean = matched > 0 && matched * 2 > leftCount && matched * 2 > rightCount
+    deletedCount: Int,
+  ): Boolean = matched > 0 && matched * 2 > deletedCount
 }

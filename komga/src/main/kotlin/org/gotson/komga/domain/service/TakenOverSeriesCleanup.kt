@@ -98,6 +98,18 @@ class TakenOverSeriesCleanup(
   fun afterScan() {
     reattachTrashedBooks()
     deleteTakenOverSeries()
+    deleteEmptiedSeries()
+  }
+
+  /**
+   * A trashed series whose books were all moved onto other series by hash
+   * (for example two folders merged into one) holds nothing to restore.
+   */
+  private fun deleteEmptiedSeries() {
+    val emptied = trashedSeries().filter { bookRepository.findAllBySeriesId(it.id).isEmpty() }
+    if (emptied.isEmpty()) return
+    seriesLifecycle.deleteMany(emptied)
+    logger.info { "Deleted emptied trashed series: ${emptied.joinToString { "${it.name}(${it.id})" }}" }
   }
 
   private fun trashedSeries(): List<Series> =
