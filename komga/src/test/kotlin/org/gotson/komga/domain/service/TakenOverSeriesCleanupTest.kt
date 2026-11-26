@@ -227,6 +227,26 @@ class TakenOverSeriesCleanupTest(
   }
 
   @Test
+  fun `given series renamed in the same library with many volumes added then no old series is left and progress is kept`() {
+    libraryRepository.insert(oldLibrary)
+    val more = volumes + listOf("v04", "v05", "v06", "v07", "v08")
+    scanResults(
+      mapOf(series("제목 제01~03권", "/comic_done/title-1-3") to books("/comic_done/title-1-3")),
+      mapOf(series("제목 제01~08권", "/comic_done/title-1-8") to books("/comic_done/title-1-8", more)),
+    )
+    val old = readOldSeries()
+
+    libraryContentLifecycle.scanRootFolder(oldLibrary)
+
+    val all = seriesRepository.findAllByLibraryId(oldLibrary.id)
+    assertThat(all).hasSize(1)
+    assertThat(all.single().deletedDate).isNull()
+    assertThat(all.single().id).isEqualTo(old.id)
+    assertThat(liveBooks(oldLibrary)).hasSize(8)
+    assertProgressOn(liveBooks(oldLibrary).filter { it.name in volumes })
+  }
+
+  @Test
   fun `given series moved to another library with one volume missing then the old series stays in the trash`() {
     libraryRepository.insert(oldLibrary)
     libraryRepository.insert(newLibrary)
