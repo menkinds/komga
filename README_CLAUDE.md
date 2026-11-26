@@ -1,7 +1,15 @@
 # README_CLAUDE — 인계서
 
-마지막 갱신: 2026-10-30 일일 /save (KST), 브랜치 `claude/hook-20261030-150234-b30cb8`
-현재 상태: master = `dd749a91` (PR #4 병합, 2026-10-30 22:26 KST). 그 아래 `801ff350` = upstream 1.29.2 병합(PR #3).
+> 최종 갱신: 2026-11-27 (KST)
+
+## 현재 상태
+- 2026-11-27: master = `489767a` (PR #8 병합). 폴더 이름이 바뀌며 권 수가 늘어난 시리즈가 Unavailable로 남던 문제 수정. 재연결 규칙을 "휴지통 시리즈 책의 과반이 새 폴더에 있으면"으로 바꿈(A), 책이 모두 옮겨져 0권이 된 휴지통 시리즈는 스캔 끝에 삭제(B). 전체 테스트 1014개 통과(로케일 UTF-8 필요), ktlint 통과. 운영 NAS 배포·스캔 확인은 아직.
+- 2026-10-30: master = `dd749a91` (PR #4 병합). 그 아래 `801ff350` = upstream 1.29.2 병합(PR #3).
+
+## 다음에 할 일
+- NAS에 새 이미지 배포 → 라이브러리 스캔 → `今日の現場と終演ごはん` Unavailable 항목이 사라졌는지, 로그에 `Relinked series` / `Deleted emptied trashed series:` 줄이 있는지 확인.
+- 이름 정리 규칙(`SeriesNameNormalizer`)은 아직 한국어 `제..권`만 지움. 일본어 `第..巻`, 맨 앞 `[작가]` 표시 제거는 사용자에게 제안만 했고 결정 안 됨.
+- 아래 "남은 일 / 사람이 정할 것"(10-30) 항목도 그대로 유효.
 
 ## 2026-10-30 일일 요약
 - Claude 작업 1건: job `20261030-120026-8a2d48` (Opus 5.5, 완료). PR #4 병합됨. 커밋 `83c1692b` (21:28 KST).
@@ -64,8 +72,13 @@ export JAVA_HOME=$PWD/.claude-tools/jdk-21.0.13+9 GRADLE_USER_HOME=$PWD/.claude-
 ./gradlew :komga:test --tests '*TakenOverSeriesCleanupTest' --no-daemon
 ```
 첫 빌드는 의존성 다운로드로 약 9분.
+- 2026-11-27 클라우드 세션: 시스템 JDK 21이 있어 `.claude-tools/` 없이 `./gradlew`로 바로 실행됨. Maven Central이 429를 자주 줘서 2분 간격으로 재시도해야 했음. 로케일이 비어 있으면 비ASCII 경로 테스트 20개가 `InvalidPathException`으로 실패하므로 `LANG=C.UTF-8 LC_ALL=C.UTF-8`를 붙여 실행.
 
 ## 남은 일 / 사람이 정할 것
 - 운영 DB에 이미 남은 "グッバイ宣言 (完)" 시리즈: 새 책에 진행·메타데이터가 같으면 다음 스캔에서 지워질 것으로 추정(미확인, 운영 데이터로 시험 안 함). 컬렉션에 들어 있었는데 새 시리즈가 그 컬렉션에 없으면 남음.
 - `tryRestoreBooks`(업스트림) 경로는 컬렉션을 옮기지 않으므로, 옛 시리즈가 컬렉션에 있으면 자동 삭제하지 않음(안전 쪽 선택).
 - 배포 후 로그에서 `Deleted taken-over series:` 줄을 확인할 것.
+
+## 세션 기록
+
+- [[komga-2026-11-26-1-handoff]] — 폴더 이름 변경+권 수 증가 시 옛 시리즈 Unavailable 잔류 수정(재연결 규칙 완화, 빈 휴지통 시리즈 삭제), PR #8 머지 #2026-11
