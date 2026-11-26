@@ -247,6 +247,53 @@ class TakenOverSeriesCleanupTest(
   }
 
   @Test
+  fun `given series renamed with author and volume marker and one volume added then the series keeps its id and the new folder name`() {
+    libraryRepository.insert(oldLibrary)
+    scanResults(
+      mapOf(series("今日の現場と終演ごはん", "/comic_done/genba") to books("/comic_done/genba", listOf("v01"))),
+      mapOf(series("[えきあ] 今日の現場と終演ごはん 第01~02巻", "/comic_done/genba-1-2") to books("/comic_done/genba-1-2", listOf("v01", "v02"))),
+    )
+    val old = readOldSeries()
+
+    libraryContentLifecycle.scanRootFolder(oldLibrary)
+
+    val all = seriesRepository.findAllByLibraryId(oldLibrary.id)
+    assertThat(all).hasSize(1)
+    assertThat(all.single().id).isEqualTo(old.id)
+    assertThat(all.single().deletedDate).isNull()
+    assertThat(all.single().name).isEqualTo("[えきあ] 今日の現場と終演ごはん 第01~02巻")
+    assertThat(liveBooks(oldLibrary)).hasSize(2)
+    assertProgressOn(liveBooks(oldLibrary).filter { it.name == "v01" })
+  }
+
+  @Test
+  fun `given two series merged into one folder then the emptied old series are deleted`() {
+    libraryRepository.insert(oldLibrary)
+    scanResults(
+      mapOf(
+        series("제목 1부", "/comic_done/title-1") to books("/comic_done/title-1", listOf("v01", "v02")),
+        series("제목 2부", "/comic_done/title-2") to books("/comic_done/title-2", listOf("v03", "v04")),
+      ),
+      mapOf(series("제목 제01~04권", "/comic_done/title") to books("/comic_done/title", listOf("v01", "v02", "v03", "v04"))),
+    )
+    libraryContentLifecycle.scanRootFolder(oldLibrary)
+    val olds = seriesRepository.findAllByLibraryId(oldLibrary.id)
+    olds.forEach { old ->
+      bookRepository.findAllBySeriesId(old.id).forEach { bookRepository.update(it.copy(fileHash = "HASH-${it.name}")) }
+      seriesLifecycle.markReadProgressCompleted(old.id, user)
+    }
+
+    libraryContentLifecycle.scanRootFolder(oldLibrary)
+
+    val all = seriesRepository.findAllByLibraryId(oldLibrary.id)
+    assertThat(all).hasSize(1)
+    assertThat(all.single().deletedDate).isNull()
+    assertThat(all.single().name).isEqualTo("제목 제01~04권")
+    assertThat(liveBooks(oldLibrary)).hasSize(4)
+    assertProgressOn(liveBooks(oldLibrary))
+  }
+
+  @Test
   fun `given series moved to another library with one volume missing then the old series stays in the trash`() {
     libraryRepository.insert(oldLibrary)
     libraryRepository.insert(newLibrary)
