@@ -721,9 +721,6 @@ export default Vue.extend({
       if (this.series.metadata.readingDirection in ReadingDirection && this.readingDirection !== this.series.metadata.readingDirection) {
         // bypass setter so setting is not persisted
         this.settings.readingDirection = this.series.metadata.readingDirection as ReadingDirection
-        this.sendNotificationReadingDirection(true)
-      } else {
-        this.sendNotificationReadingDirection(false)
       }
 
       try {

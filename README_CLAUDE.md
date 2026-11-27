@@ -3,13 +3,16 @@
 > 최종 갱신: 2026-11-27 (KST)
 
 ## 현재 상태
+- 2026-11-27 오후: PR #8 이미지(Actions run 45908926430) 배포 후 사용자 화면에서 `今日の現場と終演ごはん` Unavailable 항목이 사라짐(3850→3849 시리즈, 스크린샷으로 확인. NAS 로그는 미확인). 문서 PR #9 병합(master `ac11656`). 시리즈 제목만 보이고 `[작가] … 巻`가 안 보이는 시리즈는 제목 잠금 때문이고, 잠금은 cBossard `app/komga_sync.py`가 title·titleSort·status·genres·totalBookCount를 Lock과 함께 PATCH해서 생긴 것으로 판단(GBrain cBossard 인계서 근거, Komga DB는 직접 안 봄). 사용자 결정: 그대로 둠.
 - 2026-11-27: master = `489767a` (PR #8 병합). 폴더 이름이 바뀌며 권 수가 늘어난 시리즈가 Unavailable로 남던 문제 수정. 재연결 규칙을 "휴지통 시리즈 책의 과반이 새 폴더에 있으면"으로 바꿈(A), 책이 모두 옮겨져 0권이 된 휴지통 시리즈는 스캔 끝에 삭제(B). 전체 테스트 1014개 통과(로케일 UTF-8 필요), ktlint 통과. 운영 NAS 배포·스캔 확인은 아직.
 - 2026-10-30: master = `dd749a91` (PR #4 병합). 그 아래 `801ff350` = upstream 1.29.2 병합(PR #3).
 
 ## 다음에 할 일
-- NAS에 새 이미지 배포 → 라이브러리 스캔 → `今日の現場と終演ごはん` Unavailable 항목이 사라졌는지, 로그에 `Relinked series` / `Deleted emptied trashed series:` 줄이 있는지 확인.
-- 이름 정리 규칙(`SeriesNameNormalizer`)은 아직 한국어 `제..권`만 지움. 일본어 `第..巻`, 맨 앞 `[작가]` 표시 제거는 사용자에게 제안만 했고 결정 안 됨.
+- (선택) NAS 로그에서 `Deleted emptied trashed series:` / `Relinked series` 줄 확인. 화면에서는 Unavailable 항목이 사라진 것을 확인함.
+- 제목 잠금은 그대로 두기로 함. 나중에 `[작가] 제목 권수`로 맞추고 싶으면 cBossard `komga_sync.py`에서 title·titleSort 전송을 끄고, `komga_sent`에 기록된 제목과 같은 시리즈만 폴더 이름으로 되돌리고 잠금 해제(사람이 고친 제목은 건드리지 않음).
+- 이름 정리 규칙(`SeriesNameNormalizer`)은 아직 한국어 `제..권`만 지움. 일본어 `第..巻`, 맨 앞 `[작가]` 표시 제거는 사용자에게 제안만 했고 결정 안 됨(해시 재연결이 대부분을 처리하므로 급하지 않음).
 - 아래 "남은 일 / 사람이 정할 것"(10-30) 항목도 그대로 유효.
+- `_Archives` 폴더가 시리즈로 잡혀 보임. 빼려면 라이브러리 설정 "스캔 제외 디렉터리"에 추가(사용자에게 안내만 함).
 
 ## 2026-10-30 일일 요약
 - Claude 작업 1건: job `20261030-120026-8a2d48` (Opus 5.5, 완료). PR #4 병합됨. 커밋 `83c1692b` (21:28 KST).
@@ -81,4 +84,5 @@ export JAVA_HOME=$PWD/.claude-tools/jdk-21.0.13+9 GRADLE_USER_HOME=$PWD/.claude-
 
 ## 세션 기록
 
+- [[komga-2026-11-27-1-handoff]] — 업데이트 후 Unavailable 해소 확인, 제목만 보이는 시리즈는 cBossard komga_sync의 제목 잠금 때문으로 확인(그대로 두기로 함) #2026-11
 - [[komga-2026-11-26-1-handoff]] — 폴더 이름 변경+권 수 증가 시 옛 시리즈 Unavailable 잔류 수정(재연결 규칙 완화, 빈 휴지통 시리즈 삭제), PR #8 머지 #2026-11
