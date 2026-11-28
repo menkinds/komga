@@ -8,7 +8,7 @@ tags: ["handoff", "komga"]
 hub: "[[gbrain-notes/bossard/project-logs/komga/README_CLAUDE.md|README_CLAUDE]]"
 pair: "[[komga-2026-11-27-1-case]]"
 prev: "[[komga-2026-11-26-1-handoff]]"
-next: ""
+next: "[[komga-2026-11-28-1-handoff]]"
 gbrain: "전송됨"
 ---
 
@@ -41,4 +41,4 @@ gbrain: "전송됨"
 - 허브: [[gbrain-notes/bossard/project-logs/komga/README_CLAUDE.md|README_CLAUDE]]
 - 짝: [[komga-2026-11-27-1-case]]
 - 이전: [[komga-2026-11-26-1-handoff]]
-- 다음:
+- 다음: [[komga-2026-11-28-1-handoff]]
